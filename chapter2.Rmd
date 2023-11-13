@@ -70,7 +70,7 @@ plot(lm.1)
 
 #QQ residuals: Assumption is that the residuals are normally distributed. In plot, the residuals should follow diagonal: they do, with some deviations at the extreme ends.
 
-#Residuals vs Leverage: Standardized residuals vs. leverage should not show points that reach outside the curved areas of Cook’s distance of 1, which would indicate highly influential outliers. In plot, we do not see the Cook's distance lines so there are no excessively problematic outliers.
+#Residuals vs Leverage: Standardized residuals vs. leverage should not show points that reach outside the curved areas of Cook’s distance of 1, which would indicate highly influential outliers. In plot, we do not see the Cook's distance lines so there are no excessively problematic outliers. 
 ```
 
 
