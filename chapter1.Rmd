@@ -7,5 +7,5 @@
 
 #Went through the exercises#1 and the book. Most of the things were familiar to me, at least somewhat. Having also taught in one course (combined R/SPSS), I think the hard part of teaching R is that there are so many overlapping ways to achieve things, making the creation of sample material hard, especially at the start when student are just copypasting blindly. Then, they encounter another way of doing it, which confuses them. However, the material here and in the book is doing a good job. One can see that a large effort has been made to produce it.
 
-#Cleaned this up a little after comments. 
+#Cleaned this up a little after comments!
 
