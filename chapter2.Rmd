@@ -1,13 +1,76 @@
-# Insert chapter 2 title here
+# Chapter 2: Regression and modeling
 
-*Describe the work you have done this week and summarize your learning.*
-
-- Describe your work and results clearly. 
-- Assume the reader has an introductory course level understanding of writing and reading R code as well as statistical methods.
-- Assume the reader has no previous knowledge of your data or the more advanced methods you are using.
+*#Part 1: Read and describe the data*
 
 ```{r}
-date()
+d0 <-read.csv('data/learning2014.csv')
+str(d0)
+dim(d0)
+head(d0)
+#This data was collected 2014-2015. It includes 166 observations from 183 original participants who had nonzero total exam points (Points). Variables consist of the exam points (Points), two demographical variables, age and gender, along with four scaled sum scores denoting Attitude towards statistics (Attitude), Deep- (Deep), Strategic- (Strat) and Surface (Surf) approaches to #learning 
 ```
 
-Here we go again...
+*Part 2: Graphical overview and summaries*
+
+```{r}
+
+
+#Add required libraries
+library(psych)
+library(corrplot)
+
+
+#Overall descriptives and frequencies for gender using psych::describe library
+describe(d0)
+table(d0$gender)
+
+#Histograms
+hist(d0$Age)
+hist(d0$Attitude)
+hist(d0$Deep)
+hist(d0$Stra)
+hist(d0$Surf)
+hist(d0$Points)
+
+#Variables look relatively normal, there are no skewness or kurtosis values above 1, Except for Age, which is understandable. As usual, there are more female participants.
+
+#Correlation plot between continuous variables using corrplot library
+corrplot.mixed(cor(d0[,2:7], use = "pairwise"))
+
+#There is a substantial positive correlation between Attitude towards statistics and Exam points (r=0.44). Also, Surface approach to learning has negative correlation profile (r=-0.14--0.32) with all other variables, including age. Largest negative association (r=-0.32) is between Surface and Deep learning strategies.
+```
+
+
+*Part 3: Regression model predicting Exam points*
+
+```{r}
+#Specify the regression model. After exploratory iterations, these are the three predictors which have p<0.10 significance levels (Age,Attitude and Strategic learning) 
+lm.1 = lm(Points~Age+Attitude+Stra, data = d0)
+summary(lm.1)
+
+#Model has significant predictive power in general [F(3,162)=15.07, p<0.001].
+```
+
+*Part 4: Model parameters*
+
+```{r}
+summary(lm.1)
+#The best and only significant positive predictor of Exam points in the model is Attitude towards statistics (p<0.001). Strategic thinking has a trending positive effect (p=0.06), while Age has a trending negative effect (p=0.10). This three predictor model explains one fifth of the variance in Exam points (adj. R2=0.20). This is a only a moderate amount, as 4/5 of the variance remains unexplained. 
+```
+
+*Part 5: Model diagnostics*
+
+```{r}
+#Producing plot with the simple plot command on model. This produces four plots, of which the third (Scale-Location) was not requested in the task description but here it is anyway.
+plot(lm.1)
+
+#Looking at the three requested plots:
+
+#Residuals vs Fitted: Assumption is that distribution of residuals does not vary depending on the fitted values. In plot, the red line should be horizontal:  it is.
+
+#QQ residuals: Assumption is that the residuals are normally distributed. In plot, the residuals should follow diagonal: they do, with some deviations at the extreme ends.
+
+#Residuals vs Leverage: Standardized residuals vs. leverage should not show points that reach outside the curved areas of Cook’s distance of 1, which would indicate highly influential outliers. In plot, we do not see the Cook's distance lines so there are no excessively problematic outliers.
+```
+
+

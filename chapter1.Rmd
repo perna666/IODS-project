@@ -1,7 +1,5 @@
 
-# About the project
-
-*Write a short description about the course and add a link to your GitHub repository here. This is an R Markdown (.Rmd) file so you should use R Markdown syntax.
+*About the project*
 
 
 #I am feeling rather bad at the moment, due to having flu. Hard to work with code when bright lights hurt your eyes. Otherwise I am fine. I heard from this course from the big man Kimmo himself. As stated in the introductions, I have some experience with SPSS and Matlab. I started using R 2-3 years ago and have had good experience with it. But, if I have had to do something statistical fast I have always turned to SPSS. Also, if I have had to do some operating with data I have used Matlab since I am familiar with the syntax. After this course I hope to have internalized R to the point that I can stop going back to those "legacy modes". Mastering version control is a big part of this process and likely needed in my future projects.
@@ -9,12 +7,5 @@
 
 #Went through the exercises#1 and the book. Most of the things were familiar to me, at least somewhat. Having also taught in one course (combined R/SPSS), I think the hard part of teaching R is that there are so many overlapping ways to achieve things, making the creation of sample material hard, especially at the start when student are just copypasting blindly. Then, they encounter another way of doing it, which confuses them. However, the material here and in the book is doing a good job. One can see that a large effort has been made to produce it.
 
-
-```{r}
-# This is a so-called "R chunk" where you can write R code.
-
-date()
-
-```
-The text continues here.
+#Cleaned this up a little after comments.
 
