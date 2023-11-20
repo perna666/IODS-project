@@ -1,0 +1,130 @@
+# Chapter 3: Logistic regression
+
+load required libraries
+```{r}
+library(tidyverse)
+library(psych)
+```
+
+### Part 2: Read and describe the data
+
+```{r}
+d0 <-read.csv('data/alcohol.csv')
+ls(d0)
+```
+Data consists of observations from participants in secondary education of two Portuguese schools. The data attributes include student grades, demographic, social and school related features, and it was collected by using school reports and questionnaires. More info at:https://www.archive.ics.uci.edu/dataset/320/student+performance
+
+### Part 3: Choosing variables related to high/low alcohol consumption
+
+I am choosing the following 4 variables, in order to test historian Teemu Keskisarja's recent claim that students nowadays don't drink alcohol, instead spending their time getting depressed online. Would prefer Finnish data, but Portuguese will have to do.
+
+1. internet - Internet access at home
++ binary: yes or no
++ I predict strong negative effect for having internet. This is the main hypothesis.
+2. Medu - mother's education 
++ numeric: 0 - none,  1 - primary education (4th grade), 2 â€“ 5th to 9th grade, 3 â€“ secondary education or 4 â€“ higher education
++ Always good to include mother's education. I predict a negative effect. 
+3. activities - extra-curricular activities 
++ binary: yes or no
++ This is more exploratory. Expect a small negative effect. Nerds drink less. 
+4. romantic - with a romantic relationship 
++ binary: yes or no
++ Alcohol is a strong predictor or initiation of romantic relationships. Vast evidence exist. 
+
+Let's plot the variables. Also, let's make the mothers education variable binary (yes/no secoondary education).
+
+
+### Part 4: Exploring the variables.
+*Individual distibutions look relatively ok, internet use is fairly prevalent. Let's have a look at crosstabs and do some chi square tests to see relationships of predictors to dependent variable*
+
+```{r}
+par(mfrow = c(2,3))
+barplot(table(d0$internet), main="Internet at home")
+barplot(table(d0$Medu),main="Mother's education")
+d0 <- mutate(d0, moth_high = Medu> 2)
+barplot(table(d0$moth_high),main="Mother's secondary education")
+barplot(table(d0$activities),main="Extracurricular activities")
+barplot(table(d0$romantic),main="Romantic relationship")
+barplot(table(d0$high_use),main="High alcohol use")
+```
+
+
+#### Internet use: no effect
+
+```{r}
+table(d0$internet, d0$high_use)
+barplot(table(d0$internet, d0$high_use))
+chisq.test(d0$internet,d0$high_use)
+```
+
+
+#### Mother's secondary education: no effect
+
+```{r}
+table(d0$moth_high, d0$high_use)
+barplot(table(d0$moth_high, d0$high_use))
+chisq.test(d0$moth_high,d0$high_use)
+```
+
+#### Extracurricular activities: no effect
+
+```{r}
+table(d0$activities, d0$high_use)
+barplot(table(d0$activities, d0$high_use))
+chisq.test(d0$activities,d0$high_use)
+```
+
+#### Romantic relationship: no effect
+
+```{r}
+table(d0$romantic, d0$high_use)
+barplot(table(d0$romantic, d0$high_use))
+chisq.test(d0$romantic,d0$high_use)
+```
+#### Seems that none of my variables individually predict high alcohol use, but maybe there's something when they get controlled by the others. Let's run the model.
+
+
+### 5. Logistic regression model
+
+```{r}
+or.model = glm(high_use ~ internet+moth_high+activities+romantic, data = d0, family = "binomial")
+summary(or.model)
+confint(or.model)
+```
+The model nor its individual predictors do not do a great job in predicting high alcohol use among students. 
+
+1. Hypotheses regarding internet use (OR=0.19, 95%CI:[-0.43,0.87]) and romantic relationship (OR=-0.66, 95%CI:[-0.66,0.31]) are clearly not supported. 
+2. Mother's secondary education comes closest to a significant effect (OR=0.35, 95%CI:[-0.12, 0.82]), though the direction of the effect is positive in contrast to hypothesis. 
+3. Participating in extracurricular activities exhibit a negative, as hypothesized, but not significant effect (OR=-0.30, 95%CI:[-0.75, 0.15])
+
+
+### 6. Predictive capacities
+
+*Tried to classify with the above model, could not get it to predict high alcohol use at all. Resorted to using the best predictor, mother's secondary education, combined with a new variable, going out with friends, to be able to complete the assignment*
+
+
+Fit the new model
+```{r}
+or2.model = glm(high_use ~   moth_high+goout, data = d0, family = "binomial")
+summary(or2.model)
+prob  <- predict(or2.model, type = "response")
+d0 <- mutate(d0, probability = prob)
+d0 <- mutate(d0, prediction = probability>0.5)
+#select(d0, moth_high, activities, high_use, probability, prediction) %>% tail(10)
+table(high_use = d0$high_use, prediction = d0$prediction)
+```
+
+100/370 (27%) of students were incorrectly classified using the model with the two predictors. 
+
+Using the kappa function (from psych library), let's compare the classification distribution to random guessing. 
+
+```{r}
+cohen.kappa(table(high_use = d0$high_use, prediction = d0$prediction),n.obs=370)
+```
+Kappa estimate is 0.24, just above slight agreement. Thus, it can be stated that the prediction performance is above random guessing, but not much. (Landis, JR & Koch, GG (1977). The measurement of observer agreement for categorical data. Biometrics, 33, 159-174))
+
+
+
+
+
+
