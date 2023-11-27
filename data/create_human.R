@@ -51,3 +51,4 @@ write.csv(hdgii,file="data/human.csv",row.names=FALSE)
 #check that the data was saved correctly 
 check = read.csv('data/human.csv',header = TRUE)
 str(check)
+
