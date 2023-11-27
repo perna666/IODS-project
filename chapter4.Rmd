@@ -1,0 +1,201 @@
+# Chapter 4: Clustering and classification
+
+load required libraries
+```{r}
+library(tidyverse)
+library(psych)
+library(corrplot)
+library(ggplot2)
+```
+
+
+### Part 2: Load and describe the data
+
+
+```{r}
+# access the MASS package
+library(MASS)
+# load the data
+data("Boston")
+#check the data structure and dimensions
+str(Boston)
+summary(Boston)
+```
+
+The Boston data contains 506 observations (depicting individual towns) of 14 variables describing various information on Housing Values in Suburbs of Boston.
+
+
+### Part 3: Graphical overview and summaries
+
+
+```{r}
+#descriptives (psych package)
+describe(Boston)
+# calculate the correlation matrix
+cor_matrix <- cor(Boston) 
+# visualize the correlation matrix
+corrplot(cor_matrix)
+```
+
+Three variables exhibit substantial deviations from normality, indicated by large skewness/kurtosis values:
+
+1. crim (per capita crime rate by town)
+2. zn (proportion of residential land zoned for lots over 25,000 sq.ft.)
+3. black (proportion of blacks by town)
+
+There is also one binary variable:
+
+chas (Charles River dummy variable (= 1 if tract bounds river; 0 otherwise), which does not correlate with any of the other variables
+
+
+Looking at the correlation matrix, there seems to be one somewhat intercorrelated variable group, containing variables dealing with industrialization:
+
+1. rad (index of accessibility to radial highways)
+2. tax (full-value property-tax rate per $10,000)
+3. indus (proportion of non-retail business acres per town)
+4. nox (nitrogen oxides concentration (parts per 10 million).
+5. lstat (lower status of the population (percent).
+
+There are two correlated variable pairs with negative correlations to most other variables:
+
+1. dis (weighted mean of distances to five Boston employment centres)
+2. zn (proportion of residential land zoned for lots over 25,000 sq.ft.)
+
+and
+
+1. rm (average number of rooms per dwelling.)
+2. medv (median value of owner-occupied homes in $1000s)
+
+ 
+### Part 4: Standardization of variables, categorical crime rate and training/test set creation
+
+```{r}
+#scale the data
+boston_scaled <- as.data.frame(scale(Boston))
+describe(boston_scaled)
+```
+
+Data has now been scaled so that each variable has mean of 0 and standard deviation of 1. 
+
+
+```{r}
+#quantiles for crime
+bins <- quantile(boston_scaled$crim)
+
+#Make new varibale using the quantile cut points
+boston_scaled$crim <- as.numeric(boston_scaled$crim)
+crime <- cut(boston_scaled$crim, breaks=bins, labels = c("low", "med_low", "med_high", "high"), include.lowest = TRUE)
+
+#Drop the old crim and add the new crime variable
+boston_scaled <- dplyr::select(boston_scaled, -crim)
+boston_scaled <- data.frame(boston_scaled, crime)
+
+# choose randomly 80% of the rows
+ind <- sample(506,  size = 506 * 0.8)
+
+# create train set
+train <- boston_scaled[ind,]
+
+# create test set 
+test <- boston_scaled[-ind,]
+
+# save the correct classes from test data
+correct_classes <- test$crime
+
+# remove the crime variable from test data
+test <- dplyr::select(test, -crime)
+
+#check the new variables
+dim(train)
+dim(test)
+length(correct_classes)
+```
+Now we have a training dataset (404 observations), test data set (102 observations) and a vector of correct crime rate classes extracted from the test data set.
+
+### Part 5: Linear discrimation analysis
+
+```{r}
+# Work with the exercise in this chunk, step-by-step. Fix the R code!
+# data train is available
+
+# linear discriminant analysis
+lda.fit <- lda(crime ~ ., data = train)
+
+# print the lda.fit object
+lda.fit
+
+# the function for lda biplot arrows
+lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  graphics::arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+
+# target classes as numeric
+classes <- as.numeric(train$crime)
+
+# plot the lda results (select both lines and execute them at the same time!)
+plot(lda.fit, dimen = 2, col = classes, pch = classes)
+lda.arrows(lda.fit, myscale = 1)
+
+```
+Nice plot!
+
+
+### Part 6: Predicting crime classes in the test data. 
+
+```{r}
+#use the previous LDA model with the test data
+lda.pred <- predict(lda.fit, newdata = test)
+#plot the correct classed (separated before) and cross-tabulate
+table(correct = correct_classes, predicted = lda.pred$class)
+```
+
+Using the model trained on training data to predict test data produced good, but not perfect, performance. All high crime areas were classified correctly with no false positives or negatives. 
+
+### Part 7: K-means clustering
+
+```{r}
+#reload the data
+data("Boston")
+
+#standardize the data
+boston_scaled <- as.data.frame(scale(Boston))
+
+#calculate distances
+dist_eu <- dist(boston_scaled)
+
+set.seed(54656)
+
+# determine the number of clusters
+k_max <- 10
+
+# calculate the total within sum of squares
+twcss <- sapply(1:k_max, function(k){kmeans(boston_scaled, k)$tot.withinss})
+
+# visualize the results
+qplot(x = 1:k_max, y = twcss, geom = 'line')
+
+```
+
+It seems that the optimal number of clusters is three, using the elbow method. However, it is not totally unambiguous, case could be made that the optimum would be two or five. Let's use three nevertheless. 
+
+
+```{r}
+# k-means clustering with two clusters
+km <- kmeans(boston_scaled, centers = 3)
+# plot the Boston dataset with these clusters
+pairs(boston_scaled, col = km$cluster)
+```
+
+
+Here's the plot. There are too many variable pairs to try a concise interpretation. There seem to be two clusters (red and black) and large "other" cluster ("green"). There are differences between variable pairs where clustering performs better and some where it performs worse. Would be easier to interpret with slightly less variables.
+
+
+
+
+
+
