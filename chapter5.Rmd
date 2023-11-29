@@ -1,0 +1,122 @@
+# Chapter 5: Dimensionality reduction
+
+load required libraries
+```{r}
+library(tidyverse)
+library(psych)
+library(corrplot)
+library(tibble)
+library(FactoMineR)
+```
+
+
+### Part 1: Overview
+
+Read the data on transpose columns to rows
+
+```{r}
+human = read.csv('data/human.csv',header = TRUE)
+human_ <- column_to_rownames(human, "Country")
+```
+
+Check the distributions and correlations between variables
+
+```{r}
+describe(human)
+cor(human_)
+corrplot(cor(human_))
+hist(human_$GNI)
+hist(human_$Mat.Mor)
+```
+
+
+
+
+GNI and maternal mortality are substantially skewed right. The rest of the variables are reasonably normal regarding skewness and kurtosis values. 
+
+Maternal mortality and Adolescent birthrate correlate positively with each other and negatively with Life expectancy, Education, GNI and ratio of secondary education between genders, which form another intercorrelated cluster.
+
+Representation in Parliament and Labor role participation ratio between genders do not correlate with other variables.
+
+
+### Part 2: PCA on raw data
+
+Calculate and visualize PCA
+
+```{r}
+pca_human <- prcomp(human_)
+s <- summary(pca_human)
+round(1*s$importance[2, ], digits = 2)
+biplot(pca_human, cex = c(0.5, 0.8), col = c("grey40", "deeppink2"))
+```
+
+### Part 3: PCA on scaled data
+
+Calculate and visualize PCA using normalized variables
+
+```{r}
+pca_human_z <- prcomp(scale(human_))
+s_z <- summary(pca_human_z)
+pca_pr_z <- round(100*s_z$importance[2, ], digits = 2)
+pca_pr_z
+pc_lab<-paste0(names(pca_pr_z), " (", pca_pr_z, "%)")
+biplot(pca_human_z, cex = c(0.4, 0.6), col = c("grey40", "deeppink2"),xlab=pc_lab[1], 
+       ylab=pc_lab[2])
+```
+
+*Caption for Figure: PC1 can be interpreted to represent the (negative) development level and prosperity of the society, PC2 represents gender equality. Numbers in parentheses represent accounted variance by the component*
+
+
+With unstandardized variables, GNI dominates the whole analysis, accounting for 99.99% of variance via the first component, making the analysis useless. It is clearly very important to scale the variables when doing dimensionality reduction!
+
+With standardized variables, we get two components accounting for ~70% of the total variance and possible interpretations.  
+
+### Part 4: Interpretation of the components
+
+Component 1 can be interpreted to represent (negative) prosperity. It is positively loaded by maternal mortality and adolescent birthrate, and negatively loaded by education and human development index. 
+
+component 2 can be interpreted to represent gender equality, loaded by parliamentary representation of females and labor force participation ratio between the sexes. 
+
+Components are orthogonal, indicating the they are, to a degree, independent factors withing countries. 
+
+
+### Part 5: It's teatime!
+
+```{r}
+
+#read the data
+tea <- read.csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/tea.csv", stringsAsFactors = TRUE)
+
+#check data, comment out
+#view(tea)
+
+#Let's use the perception variables from the last 12 columns of the data
+tea_perc<-tea[,25:36]
+
+#plot the responses
+pivot_longer(tea_perc, cols = everything()) %>% 
+  ggplot(aes(value)) + geom_bar()+ facet_wrap("name", scales = "free")+ theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+
+
+#run MCA
+mca <- MCA(tea_perc, graph = TRUE)
+
+#plot the biplot
+plot(mca, invisible=c("ind"), graph.type = "classic", habillage = "quali")
+
+```
+
+
+
+
+
+MCA was conducted on the variables detailing the perception of tea brands.
+
+The two-component solution explains only quarter of the variance. The first dimension can be interpreted as positive/feminine vs negative/non-feminine definition of the product (DEFINITIONS). Second dimensions concerns health, excitability and vigour (EFFECTS).
+
+More research is needed....
+
+
+
+
+
