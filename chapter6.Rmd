@@ -1,0 +1,288 @@
+# Chapter 6: Longitudinal data
+
+load required libraries
+```{r}
+library(tidyverse)
+library(psych)
+library(corrplot)
+library(ggplot2)
+library(lme4)
+library(Matrix)
+library(car)
+library(lmerTest)
+```
+
+### Part 1: Chapter 8 MABS analysis using RATS data
+
+Read in the RATS data and convert to long form
+
+```{r}
+RATS <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/MABS/master/Examples/data/rats.txt", header = TRUE, sep = '\t')
+
+RATS$ID <- factor(RATS$ID)
+RATS$Group <- factor(RATS$Group)
+
+RATSL <-  pivot_longer(RATS, cols = -c(ID, Group),
+                       names_to = "weekdays", values_to = "rats") %>%
+  arrange(weekdays) 
+
+RATSL <-  RATSL %>% 
+  mutate(time = as.integer(substr(weekdays,3,4)))
+
+```
+
+
+Plot the rat weight data by Time and Group
+
+```{r}
+ggplot(RATSL, aes(x = time, y = rats, linetype = ID)) +
+  geom_line() +
+  scale_linetype_manual(values = rep(1:8, times=2)) +
+  facet_grid(. ~ Group, labeller = label_both) +
+  theme(legend.position = "none") + 
+  scale_y_continuous(limits = c(min(RATSL$rats), max(RATSL$rats)))
+```
+
+
+Standardize by week and plot the standardized (by week) data by Time and Group
+
+```{r}
+RATSL <- RATSL %>%
+  group_by(time) %>%
+  mutate(stdrats = scale(rats)) %>%
+  ungroup()
+
+
+ggplot(RATSL, aes(x = time, y = stdrats, linetype = ID)) +
+  geom_line() +
+  scale_linetype_manual(values = rep(1:8, times=2)) +
+  facet_grid(. ~ Group, labeller = label_both) +
+  theme(legend.position = "none") + 
+  scale_y_continuous(limits = c(min(RATSL$stdrats), max(RATSL$stdrats)))
+```
+
+
+Groups 2 and 3 have much larger scores. There is an outlier in Group 2, a fat rat.
+
+
+Plot mean and standard deviation by group. Used SD instead of SE since the group sizes differ.
+
+```{r}
+RATSS <- RATSL %>%
+  group_by(Group, time) %>%
+  summarise(mean =mean(rats), se = sd(rats)) %>%
+  ungroup()
+
+ggplot(RATSS, aes(x = time, y = mean, linetype = Group, colour = Group)) +
+  geom_line() +
+  scale_linetype_manual(values = c(1,2,3)) +
+  geom_point(size=3) +
+  scale_shape_manual(values = c(1,2,3)) +
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se, linetype="1"), width=0.3) +
+  theme(legend.position = c(0.8,0.4)) +
+  scale_y_continuous(name = "mean rat weight +/- sd(rat weight)")
+
+```
+Group 2 has large deviations, suggesting the presence of an outlier detected earlier.
+
+Let's remove the outlier for exercise's sake. In real world, four observations per group is too small for any statistical operations, including checking for outliers.
+
+Remove the outlier (ID=12) and make a boxplot per group.
+
+```{r}
+#Means with the outlier
+RATSD2 <- RATSL %>%
+ #filter(ID!=12)  %>%
+ #filter(week > 0) %>%
+  group_by(Group, ID) %>%
+  summarise( mean=mean(rats) ) %>%
+  ungroup()
+
+#Means without the ourlier
+RATSD <- RATSL %>%
+  filter(ID!=12)  %>%
+ #filter(week > 0) %>%
+  group_by(Group, ID) %>%
+  summarise( mean=mean(rats) ) %>%
+  ungroup()
+
+ggplot(RATSD, aes(x = Group, y = mean)) +
+  geom_boxplot() +
+  stat_summary(fun = "mean", geom = "point", shape=23, size=4, fill = "white") +
+  scale_y_continuous(name = "mean rat weight, days 1-64")
+```
+
+There are outliers in group 1 and group 3 as well but let's leave them be. Testing for group differences with the original outlier removed.
+
+```{r}
+t.test(mean ~ Group, data = filter(RATSD,Group!=3), var.equal = TRUE)
+t.test(mean ~ Group, data = filter(RATSD,Group!=2), var.equal = TRUE)
+t.test(mean ~ Group, data = filter(RATSD,Group!=1), var.equal = TRUE)
+```
+
+All differences are significant at p<0.01 level. Let's check without the ourlier removed:
+
+```{r}
+t.test(mean ~ Group, data = filter(RATSD2,Group!=3), var.equal = TRUE)
+t.test(mean ~ Group, data = filter(RATSD2,Group!=2), var.equal = TRUE)
+t.test(mean ~ Group, data = filter(RATSD2,Group!=1), var.equal = TRUE)
+```
+
+When the outlier in Group 2 remains, there difference between Group 2 and Group 3 is non-significant.
+
+Create a new set of means without day 1, moving it to a separate baseline variable instead. With and without the outlier.
+
+```{r}
+rm(RATSD2)
+RATSD2 <- RATSL %>%
+  filter(time > 0) %>%
+  group_by(Group, ID) %>%
+  summarise( mean=mean(rats) ) %>%
+  ungroup()
+
+RATSB_WITHOUT <- RATSD2 %>%
+  mutate(baseline = RATS$WD1)  %>%
+   filter(ID!=12) 
+
+RATSB_WITH <- RATSD2 %>%
+  mutate(baseline = RATS$WD1) 
+```
+
+Fit the linear model with Group and baseline. Use car library to print ANOVA table. 
+
+```{r}
+fit <- lm(mean ~ Group + baseline, data = RATSB_WITHOUT)
+Anova(fit, type="III")
+```
+When controlling for the first day baseline, there are still significant differences between groups at later days. Lets' check with the outlier included.
+
+
+```{r}
+fit <- lm(mean ~ Group + baseline, data = RATSB_WITH)
+Anova(fit, type="III")
+```
+
+When the outlier in Group 2 is not removed, the difference between the groups becomes trending (p<0.10). Baseline still highly significant.
+
+
+### Part 2: Chapter 9 MABS analysis using BPRS data
+
+Read in the BPRS data and convert to long form
+```{r}
+BPRS <- read.table("https://raw.githubusercontent.com/KimmoVehkalahti/MABS/master/Examples/data/BPRS.txt", sep =" ", header = T)
+
+BPRS$treatment <- factor(BPRS$treatment)
+BPRS$subject <- factor(BPRS$subject)
+
+BPRSL <-  pivot_longer(BPRS, cols = -c(treatment, subject),
+                       names_to = "weeks", values_to = "bprs") %>%
+  arrange(weeks) 
+
+BPRSL <-  BPRSL %>% 
+  mutate(week = as.integer(substr(weeks,5,5)))
+```
+
+Plot BPRS values per subjects, separate panels according to treatment (1 or 2)
+
+```{r}
+ggplot(BPRSL, aes(x = week, y = bprs, linetype = subject)) +
+  geom_line() +
+  scale_linetype_manual(values = rep(1:10, times=4)) +
+  facet_grid(. ~ treatment, labeller = label_both) +
+  theme(legend.position = "none") + 
+  scale_y_continuous(limits = c(min(BPRSL$bprs), max(BPRSL$bprs)))
+```
+
+Fit a regression model on the data with time and treatment as independent variables
+
+```{r}
+fit <- lm(bprs ~ treatment + week, data = BPRSL)
+summary(fit)
+```
+Treatment does not seem to have an effect. Time (week) has a significant negative effect (p<0.001). The BPRS scores diminish over time.
+
+Fit a linear mixed random intercept model with subject id (subject) as the random effect.
+
+```{r}
+bprs_ref <- lmer(bprs ~ week + treatment + (1 | subject), data = BPRSL, REML = FALSE)
+summary(bprs_ref)
+```
+
+Fit a linear mixed random slope and intercept model with subject id (subject) as the random effect with individual slopes for each individual. 
+
+
+```{r}
+bprs_ref2 <- lmer(bprs ~ week + treatment + (week | subject), data = BPRSL, REML = FALSE)
+summary(bprs_ref2)
+```
+Test which model fits the data better
+
+```{r}
+anova(bprs_ref2, bprs_ref)
+```
+The random intercept and random slope model fits the data significantly better.
+
+Fit a linear mixed random slope and intercept model with interaction between time and treatment.
+
+
+```{r}
+bprs_ref3 <- lmer(bprs ~ week * treatment + (week | subject), data = BPRSL, REML = FALSE)
+summary(bprs_ref3)
+```
+
+Using lmertest package to get p values for the effects. It seems that the scores diminish as function of time (week) with a highly significant effect (p<0.001). Treatment does not affect scores, whereas time and treatment have trending interaction effect (p=0.08).
+
+
+```{r}
+anova(bprs_ref3, bprs_ref2)
+```
+Does not improve the fit significantly (p=0.08), but is an improvement still.
+
+
+Plot the observed and fitted values with some jitter for readability.
+
+```{r}
+BPRSL$fitted <- fitted(bprs_ref3)  
+
+ggplot(BPRSL, aes(x = week, y = bprs, group = subject)) +
+  geom_jitter(aes(color = treatment)) +
+  scale_x_continuous(name = "Time (weeks)", breaks = seq(0, 8, 2)) +
+  scale_y_continuous(name = "Observed BPRS") +
+  theme(legend.position = "top")
+
+ggplot(BPRSL, aes(x = week, y = fitted, group = subject)) +
+  geom_jitter(aes(color = treatment)) +
+  scale_x_continuous(name = "Time (weeks)", breaks = seq(0, 8, 2)) +
+  scale_y_continuous(name = "Fitted BPRS") +
+  theme(legend.position = "top")
+```
+
+
+
+It seems that the slope is slighty less negative for treatment group 2, as indicated by the trending interaction effect. Fit looks a bit aggressive, a lot of variation is unaccounted for. Main effect and it's direction are clearly observable.
+
+The effect of time would perhaps better be modelled as quadratic, as some participants' scores, especially in group 2 ,seem to start rising at weeks 7 and 8. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
